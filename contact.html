@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Razak Traders - Contact & Support</title>
+    <link rel="icon" type="image/png" href="raz.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs for contact form storage -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDS9UzCfpEHP9NpMbFLjwrqsyqfX0-o2t0",
+            authDomain: "razaktraders-24306.firebaseapp.com",
+            projectId: "razaktraders-24306",
+            storageBucket: "razaktraders-24306.firebasestorage.app",
+            messagingSenderId: "373895349735",
+            appId: "1:373895349735:web:05d4b4af5808c3ca0a6942",
+            measurementId: "G-MBBYFDM7H5"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Handle contact form submission
+        document.addEventListener('DOMContentLoaded', () => {
+            const contactForm = document.getElementById('contactForm');
+            const formStatus = document.getElementById('formStatus');
+            
+            if (contactForm) {
+                contactForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    // Get form values
+                    const fullName = document.getElementById('fullName').value.trim();
+                    const email = document.getElementById('email').value.trim();
+                    const phone = document.getElementById('phone').value.trim();
+                    const message = document.getElementById('message').value.trim();
+                    
+                    // Basic validation
+                    if (!fullName || !email || !message) {
+                        formStatus.innerHTML = '<div class="bg-red-100 text-red-700 p-3 rounded-lg text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i> Please fill in all required fields (Name, Email, Message).</div>';
+                        formStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        return;
+                    }
+                    
+                    // Email format validation
+                    const emailRegex = /^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$/;
+                    if (!emailRegex.test(email)) {
+                        formStatus.innerHTML = '<div class="bg-red-100 text-red-700 p-3 rounded-lg text-sm flex items-center gap-2"><i class="fas fa-envelope"></i> Please enter a valid email address.</div>';
+                        return;
+                    }
+                    
+                    // Show loading state
+                    const submitBtn = contactForm.querySelector('button[type="submit"]');
+                    const originalBtnText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                    
+                    try {
+                        // Store message in Firestore "contactMessages" collection
+                        await addDoc(collection(db, "contactMessages"), {
+                            fullName: fullName,
+                            email: email,
+                            phone: phone || "Not provided",
+                            message: message,
+                            timestamp: serverTimestamp(),
+                            status: "unread"
+                        });
+                        
+                        // Success message
+                        formStatus.innerHTML = '<div class="bg-green-100 text-green-800 p-3 rounded-lg text-sm flex items-center gap-2"><i class="fas fa-check-circle"></i> Message sent successfully! Our team will get back to you within 24 hours.</div>';
+                        contactForm.reset();
+                        
+                        // Clear success message after 6 seconds
+                        setTimeout(() => {
+                            formStatus.innerHTML = '';
+                        }, 6000);
+                    } catch (error) {
+                        console.error("Error saving contact message:", error);
+                        formStatus.innerHTML = '<div class="bg-red-100 text-red-700 p-3 rounded-lg text-sm flex items-center gap-2"><i class="fas fa-bug"></i> Server error. Please try again later or WhatsApp us directly.</div>';
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                });
+            }
+        });
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+        /* Dropdown menu animation (matching homepage) */
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-12px) scale(0.96);
+            transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), visibility 0.2s;
+            z-index: 60;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .dropdown-menu.open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1f2937;
+            transition: all 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover {
+            background: #f9fafb;
+            color: #ea580c;
+            padding-left: 24px;
+        }
+        .dropdown-icon { width: 24px; text-align: center; color: #6b7280; }
+        .dropdown-item:hover .dropdown-icon { color: #ea580c; }
+        
+        /* Contact card & form styling */
+        .contact-card {
+            transition: transform 0.2s ease, box-shadow 0.2s;
+        }
+        .contact-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1);
+        }
+        .input-focus:focus {
+            border-color: #ea580c;
+            ring: 2px solid #ea580c;
+            outline: none;
+        }
+        .map-container {
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 12px 24px -12px rgba(0,0,0,0.2);
+        }
+        .floating-wa {
+            transition: all 0.2s ease;
+        }
+        .floating-wa:hover {
+            transform: scale(1.08);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<!-- ========== NAVIGATION (IDENTICAL TO HOMEPAGE) ========== -->
+<nav class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <img src="raz.png" class="h-10 w-auto" alt="Razak Traders Logo">
+            <span class="text-xl font-bold tracking-tighter">RAZAK TRADERS</span>
+        </div>
+        
+        <div class="flex-1 max-w-md mx-8 hidden md:block">
+            <div class="text-sm text-gray-400 italic flex items-center gap-2">
+                <i class="fas fa-envelope-open-text"></i> <span>contact@razaktraders.ug</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <a href="https://wa.me/256704797769" class="text-green-600 md:bg-green-50 md:text-green-700 md:px-4 md:py-2 rounded-full font-bold flex items-center gap-2 transition hover:bg-green-100">
+                <i class="fab fa-whatsapp text-xl"></i>
+                <span class="hidden md:inline">Live Chat</span>
+            </a>
+            <!-- Animated dropdown menu -->
+            <div class="relative">
+                <button id="dropdownTriggerBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm border border-gray-200">
+                    <i class="fas fa-ellipsis-v text-lg"></i>
+                </button>
+                <div id="animatedDropdown" class="dropdown-menu">
+                    <a href="index.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-store"></i></span>
+                        <span>Home / Shop</span>
+                    </a>
+                    <a href="contact.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-address-card"></i></span>
+                        <span>Contact</span>
+                    </a>
+                    <a href="location.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-location-dot"></i></span>
+                        <span>Location</span>
+                    </a>
+                    <a href="mailto:hamidtomusange47@gmail.com?subject=Inquiry%20from%20Razak%20Traders" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-envelope"></i></span>
+                        <span>Email Business</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ========== HERO SECTION (CONTACT FOCUS) ========== -->
+<section class="relative bg-gradient-to-r from-gray-900 to-gray-800 text-white py-20 md:py-28 overflow-hidden">
+    <div class="absolute inset-0 opacity-20">
+        <img src="img1.jpg" class="w-full h-full object-cover" alt="industrial background">
+    </div>
+    <div class="container mx-auto px-6 relative z-10 text-center">
+        <div class="inline-block bg-orange-600/20 backdrop-blur-sm px-4 py-1 rounded-full text-sm font-mono mb-4 border border-orange-500/30">
+            <i class="fas fa-headset mr-2"></i> 24/7 SUPPORT
+        </div>
+        <h1 class="text-5xl md:text-7xl font-black uppercase tracking-tighter mb-4">Let’s Connect</h1>
+        <p class="text-xl md:text-2xl font-light max-w-2xl mx-auto text-gray-200">Reach out for wholesale inquiries, technical support, or bulk orders — we reply within hours.</p>
+        <div class="flex flex-wrap justify-center gap-3 mt-8">
+            <a href="https://wa.me/256704797769" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-full font-bold flex items-center gap-2 transition"><i class="fab fa-whatsapp"></i> WhatsApp Now</a>
+            <a href="mailto:hamidtomusange47@gmail.com" class="bg-white/10 backdrop-blur-sm hover:bg-white/20 px-6 py-3 rounded-full font-bold flex items-center gap-2 transition border border-white/30"><i class="fas fa-envelope"></i> Official Email</a>
+        </div>
+    </div>
+</section>
+
+<!-- ========== MAIN CONTACT SECTION ========== -->
+<main class="container mx-auto px-4 py-16 md:py-24">
+    <div class="grid md:grid-cols-2 gap-12 lg:gap-16">
+        <!-- LEFT COLUMN: CONTACT INFO & DETAILS -->
+        <div class="space-y-8">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 contact-card border border-gray-100">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 text-xl">
+                        <i class="fas fa-map-pin"></i>
+                    </div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Visit Our Hub</h2>
+                </div>
+                <div class="space-y-5">
+                    <div class="flex gap-4 items-start">
+                        <i class="fas fa-location-dot text-orange-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="font-bold text-gray-800">Razak Traders Showroom</p>
+                            <p class="text-gray-600">Shop B23, Kikuubo Trade Centre<br>Kampala Central, Uganda</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 items-start">
+                        <i class="fas fa-phone-alt text-orange-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="font-bold text-gray-800">Direct Line</p>
+                            <p class="text-gray-600">+256 704 797769 (Sales & Support)</p>
+                            <p class="text-gray-500 text-sm">Mon - Sat: 8am – 6pm</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 items-start">
+                        <i class="fas fa-envelope text-orange-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="font-bold text-gray-800">Email Us</p>
+                            <p class="text-gray-600">hamidtomusange47@gmail.com</p>
+                            <p class="text-gray-500 text-sm">For quotes & after-sales support</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 items-start">
+                        <i class="fas fa-clock text-orange-500 text-xl mt-1"></i>
+                        <div>
+                            <p class="font-bold text-gray-800">Business Hours</p>
+                            <p class="text-gray-600">Monday – Saturday: 08:00 – 18:00</p>
+                            <p class="text-gray-500">Sunday: Closed (Online orders via WhatsApp)</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-6 border-t border-gray-100">
+                    <p class="text-sm font-mono text-gray-500 flex items-center gap-2"><i class="fas fa-shield-alt text-green-600"></i> 100% genuine INGCO, Wadfow, and premium electronics</p>
+                </div>
+            </div>
+            
+            <!-- Quick social & emergency contact card -->
+            <div class="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-xl">
+                <div class="flex items-center gap-3 mb-4">
+                    <i class="fab fa-whatsapp text-3xl text-green-400"></i>
+                    <h3 class="text-xl font-black">Instant Support</h3>
+                </div>
+                <p class="text-gray-300 text-sm mb-4">Get real-time assistance, product availability, and price quotations directly on WhatsApp.</p>
+                <a href="https://wa.me/256704797769" class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 px-5 py-2.5 rounded-full font-bold transition w-full justify-center"><i class="fab fa-whatsapp"></i> Start WhatsApp Chat</a>
+            </div>
+        </div>
+        
+        <!-- RIGHT COLUMN: CONTACT FORM + MAP -->
+        <div class="space-y-8">
+            <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 contact-card">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 text-xl">
+                        <i class="fas fa-pen-alt"></i>
+                    </div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Send Message</h2>
+                </div>
+                <div id="formStatus" class="mb-4"></div>
+                <form id="contactForm" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Full Name <span class="text-orange-500">*</span></label>
+                        <input type="text" id="fullName" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition outline-none" placeholder="James M. Kato" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Email Address <span class="text-orange-500">*</span></label>
+                        <input type="email" id="email" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition outline-none" placeholder="hello@razaktraders.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Phone Number (optional)</label>
+                        <input type="tel" id="phone" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition outline-none" placeholder="+256 7XX XXX XXX">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Message / Inquiry <span class="text-orange-500">*</span></label>
+                        <textarea id="message" rows="5" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition outline-none" placeholder="Tell us about your project, bulk order, or product inquiry..."></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-gray-900 hover:bg-orange-600 text-white font-black py-3.5 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-md">
+                        <i class="fas fa-paper-plane"></i> SEND MESSAGE
+                    </button>
+                    <p class="text-xs text-gray-400 text-center mt-3"><i class="fas fa-lock"></i> Your info is secure — we respond within 24h</p>
+                </form>
+            </div>
+            
+            <!-- Google Maps Embed (Kampala location) -->
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden contact-card">
+                <div class="bg-gray-100 px-6 py-3 border-b border-gray-200 flex items-center gap-2">
+                    <i class="fas fa-map-marked-alt text-orange-500"></i>
+                    <span class="font-bold text-sm uppercase tracking-wide">Find our showroom</span>
+                </div>
+                <div class="map-container">
+                    <iframe 
+                        class="w-full h-64 md:h-72"
+                        style="border:0"
+                        loading="lazy"
+                        allowfullscreen
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.746080585619!2d32.5825191!3d0.31360080000000004!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x177dbb9e5f3e9e4b%3A0x8b5b6b2b8b5b6b2b!2sKampala%20Road%2C%20Kampala!5e0!3m2!1sen!2sug!4v1710000000000!5m2!1sen!2sug">
+                    </iframe>
+                </div>
+                <div class="p-4 bg-white text-center text-sm text-gray-500 border-t border-gray-100">
+                    <i class="fas fa-directions"></i> Kikuubo Trade Centre, opposite Capital Shoppers — Kampala, Uganda
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ADDITIONAL CTA SECTION: BULK ORDERS -->
+    <div class="mt-20 bg-orange-50 rounded-3xl p-8 md:p-12 text-center shadow-sm border border-orange-100">
+        <div class="max-w-3xl mx-auto">
+            <i class="fas fa-truck-fast text-5xl text-orange-500 mb-4"></i>
+            <h3 class="text-2xl md:text-3xl font-black uppercase tracking-tight">Need Wholesale or Corporate Pricing?</h3>
+            <p class="text-gray-700 mt-2 mb-6">We supply construction companies, workshops, and retailers with bulk discounts & dedicated support.</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="mailto:hamidtomusange47@gmail.com?subject=Wholesale%20Inquiry%20-%20Razak%20Traders" class="bg-gray-900 text-white px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-orange-700 transition"><i class="fas fa-chart-line"></i> Request Quote</a>
+                <a href="https://wa.me/256704797769" class="bg-white border border-gray-300 px-8 py-3 rounded-full font-bold flex items-center gap-2 hover:bg-gray-100 transition"><i class="fab fa-whatsapp text-green-600"></i> Speak to Sales</a>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ========== FOOTER (EXACTLY MATCHING HOMEPAGE) ========== -->
+<footer class="bg-gray-950 text-white py-16 mt-8">
+    <div class="container mx-auto px-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-12 border-b border-gray-800 pb-12">
+            <div>
+                <img src="raz.png" class="h-12 w-auto mb-6 grayscale invert" alt="Razak Traders Logo">
+                <p class="text-gray-400 text-sm leading-relaxed uppercase tracking-widest">Logic over hype. Quality industrial tools and electronics for professionals.</p>
+                <div class="flex gap-4 mt-6">
+                    <a href="https://wa.me/256704797769" class="bg-gray-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-green-600 transition"><i class="fab fa-whatsapp"></i></a>
+                    <a href="mailto:hamidtomusange47@gmail.com" class="bg-gray-800 w-10 h-10 rounded-full flex items-center justify-center hover:bg-orange-600 transition"><i class="fas fa-envelope"></i></a>
+                </div>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Fast Navigation</h4>
+                <ul class="space-y-4 text-sm text-gray-500 font-bold">
+                    <li><a href="index.html#cat-charging" class="hover:text-orange-500">CHARGING SOLUTIONS</a></li>
+                    <li><a href="index.html#cat-handtools" class="hover:text-orange-500">HAND TOOLS</a></li>
+                    <li><a href="index.html#cat-powertools" class="hover:text-orange-500">INGCO POWER TOOLS</a></li>
+                    <li><a href="index.html#cat-audio" class="hover:text-orange-500">PRO AUDIO</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Contact info</h4>
+                <p class="text-sm text-gray-400 font-mono">+256 704 797769</p>
+                <p class="text-sm text-gray-400 font-mono mt-2">hamidtomusange47@gmail.com</p>
+                <p class="text-sm text-gray-400 font-mono mt-2">Kampala, Uganda</p>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Business Hours</h4>
+                <p class="text-sm text-gray-400">MON - SAT: 8:00 AM - 6:00 PM</p>
+                <p class="text-sm text-gray-400">SUN: CLOSED (WhatsApp for urgent)</p>
+                <p class="text-sm text-gray-400 mt-3">Bulk delivery nationwide</p>
+            </div>
+        </div>
+        <div class="pt-8 flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 font-black tracking-[0.2em]">
+            <p>© 2026 RAZAK TRADERS. ALL RIGHTS RESERVED.</p>
+            <p class="mt-4 md:mt-0">LOGIC OVER HYPE — INDUSTRIAL PRECISION</p>
+        </div>
+    </div>
+</footer>
+
+<!-- Floating action buttons: scroll to top + WhatsApp -->
+<button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="fixed bottom-6 left-6 bg-white text-black w-12 h-12 rounded-full shadow-2xl flex items-center justify-center border border-gray-200 z-50 hover:bg-gray-100 transition">
+    <i class="fas fa-chevron-up"></i>
+</button>
+
+<a href="https://wa.me/256704797769" class="fixed bottom-6 right-6 bg-green-500 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl z-50 hover:scale-110 transition floating-wa">
+    <i class="fab fa-whatsapp"></i>
+</a>
+
+<!-- Dropdown interaction script (identical to homepage) -->
+<script>
+    (function() {
+        const dropdownBtn = document.getElementById('dropdownTriggerBtn');
+        const dropdownMenu = document.getElementById('animatedDropdown');
+        if (dropdownBtn && dropdownMenu) {
+            dropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownMenu.classList.toggle('open');
+            });
+            document.addEventListener('click', (event) => {
+                if (!dropdownBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.remove('open');
+                }
+            });
+        }
+    })();
+</script>
+</body>
+</html>
