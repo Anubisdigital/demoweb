@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Razak Traders - Logic Over Hype</title>
+    <link rel="icon" type="image/png" href="raz.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDS9UzCfpEHP9NpMbFLjwrqsyqfX0-o2t0",
+            authDomain: "razaktraders-24306.firebaseapp.com",
+            projectId: "razaktraders-24306",
+            storageBucket: "razaktraders-24306.firebasestorage.app",
+            messagingSenderId: "373895349735",
+            appId: "1:373895349735:web:05d4b4af5808c3ca0a6942",
+            measurementId: "G-MBBYFDM7H5"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Define category mapping to section IDs
+        const categoryMap = {
+            "Power & Charging": "cat-charging",
+            "Hand Tools": "cat-handtools",
+            "Home Appliances": "cat-appliances",
+            "Safety & PPE": "cat-safety",
+            "Audio/PA": "cat-audio",
+            "Power Tools": "cat-powertools"
+        };
+        
+        // Store products globally for search/modal
+        let allProducts = [];
+        
+        // Helper: render products into their respective sections
+        function renderProducts(products) {
+            // Clear existing product grids (but keep section headers)
+            for (let sectionId of Object.values(categoryMap)) {
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    const grid = section.querySelector('.products-grid');
+                    if (grid) grid.innerHTML = '';
+                }
+            }
+            
+            // Group products by category
+            products.forEach(product => {
+                const cat = product.category || "Power Tools"; // fallback category
+                const sectionId = categoryMap[cat];
+                if (sectionId) {
+                    const section = document.getElementById(sectionId);
+                    if (section) {
+                        const grid = section.querySelector('.products-grid');
+                        if (grid) {
+                            const card = createProductCard(product);
+                            grid.appendChild(card);
+                        }
+                    }
+                }
+            });
+            
+            // Re-attach event listeners for modal and WhatsApp after DOM update
+            attachProductInteractions();
+        }
+        
+        // Create a product card DOM element
+        function createProductCard(product) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'product-card bg-white p-4 rounded-lg shadow-sm border border-gray-100';
+            cardDiv.setAttribute('data-product-id', product.id);
+            
+            // Image
+            const img = document.createElement('img');
+            img.src = product.imageUrl || 'https://res.cloudinary.com/razak_anubis/image/upload/v1/default-product.jpg';
+            img.alt = product.name;
+            img.className = 'w-full h-40 object-cover rounded-md mb-4 bg-gray-50 product-img cursor-pointer';
+            img.loading = 'lazy';
+            img.onerror = () => { img.src = 'https://via.placeholder.com/300x200?text=No+Image'; };
+            
+            // Name
+            const name = document.createElement('h3');
+            name.className = 'font-bold text-sm h-10 overflow-hidden uppercase';
+            name.innerText = product.name;
+            
+            // Description (optional small line)
+            const desc = document.createElement('p');
+            desc.className = 'text-gray-500 text-xs mt-1 desc-text';
+            desc.innerText = product.description ? product.description.substring(0, 60) + (product.description.length > 60 ? '...' : '') : 'Premium quality product';
+            
+            // Price
+            const price = document.createElement('p');
+            price.className = 'text-orange-600 font-black mt-2';
+            price.innerText = product.price;
+            
+            // Order button
+            const orderBtn = document.createElement('a');
+            orderBtn.href = '#';
+            orderBtn.className = 'order-btn mt-4 block text-center bg-gray-900 text-white py-2 rounded text-xs font-bold';
+            orderBtn.innerText = product.orderButtonText || 'WHATSAPP ORDER';
+            
+            cardDiv.appendChild(img);
+            cardDiv.appendChild(name);
+            cardDiv.appendChild(desc);
+            cardDiv.appendChild(price);
+            cardDiv.appendChild(orderBtn);
+            
+            // Store product data on card for modal and WhatsApp
+            cardDiv.dataset.name = product.name;
+            cardDiv.dataset.price = product.price;
+            cardDiv.dataset.description = product.description || 'No description available.';
+            cardDiv.dataset.image = product.imageUrl || '';
+            
+            return cardDiv;
+        }
+        
+        // Attach modal and WhatsApp listeners to dynamic cards
+        function attachProductInteractions() {
+            // Modal for image click
+            document.querySelectorAll('.product-img').forEach(img => {
+                img.removeEventListener('click', handleImageClick);
+                img.addEventListener('click', handleImageClick);
+            });
+            
+            // WhatsApp order buttons
+            document.querySelectorAll('.order-btn').forEach(btn => {
+                btn.removeEventListener('click', handleOrderClick);
+                btn.addEventListener('click', handleOrderClick);
+            });
+        }
+        
+        function handleImageClick(e) {
+            const card = e.target.closest('.product-card');
+            if (!card) return;
+            const name = card.dataset.name;
+            const price = card.dataset.price;
+            const description = card.dataset.description;
+            const imageUrl = card.dataset.image || e.target.src;
+            openProductModal(imageUrl, name, description, price);
+        }
+        
+        function handleOrderClick(e) {
+            e.preventDefault();
+            const card = e.target.closest('.product-card');
+            if (!card) return;
+            const name = card.dataset.name;
+            const price = card.dataset.price;
+            const description = card.dataset.description;
+            const phone = "256704797769";
+            const message = `Hello Razak Traders, I would like to order *${name}* (${price}). ${description ? `Details: ${description.substring(0, 100)}. ` : ''}Please confirm availability and payment options. Thanks!`;
+            const encodedMsg = encodeURIComponent(message);
+            window.open(`https://wa.me/${phone}?text=${encodedMsg}`, '_blank');
+        }
+        
+        // Modal logic (same as before)
+        function openProductModal(imgSrc, productName, productDescription, productPrice) {
+            const modal = document.getElementById('productModal');
+            const modalImg = document.getElementById('modalImg');
+            const modalName = document.getElementById('modalName');
+            const modalDesc = document.getElementById('modalDesc');
+            const modalPrice = document.getElementById('modalPrice');
+            modalImg.src = imgSrc;
+            modalName.innerText = productName;
+            modalDesc.innerText = productDescription;
+            modalPrice.innerText = productPrice;
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('productModal');
+            modal.classList.remove('active');
+        }
+        
+        // Fetch products from Firestore — loading animation completely removed
+        async function loadProducts() {
+            // No loading overlay animation anymore
+            try {
+                const querySnapshot = await getDocs(collection(db, "electric"));
+                const products = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Map fields: support different possible field names
+                    products.push({
+                        id: doc.id,
+                        name: data.name || data.productName || "Untitled Product",
+                        description: data.description || data.desc || "",
+                        price: data.price || data.productPrice || "UGX 0",
+                        imageUrl: data.imageUrl || data.image || "https://res.cloudinary.com/razak_anubis/image/upload/v1/default.jpg",
+                        category: data.category || "Power Tools",
+                        orderButtonText: data.orderButtonText || "WHATSAPP ORDER"
+                    });
+                });
+                allProducts = products;
+                renderProducts(products);
+            } catch (error) {
+                console.error("Error loading products: ", error);
+                // fallback message container if needed, but no loading animation
+                const mainContainer = document.querySelector('main');
+                if (mainContainer && !document.querySelector('.error-message')) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'text-red-600 text-center p-8 error-message';
+                    errorDiv.innerText = 'Failed to load products. Please refresh or contact admin.';
+                    mainContainer.prepend(errorDiv);
+                }
+            }
+        }
+        
+        // Expose closeModal globally for inline onclick
+        window.closeModal = closeModal;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProducts();
+            // Dropdown menu logic
+            const dropdownBtn = document.getElementById('dropdownTriggerBtn');
+            const dropdownMenu = document.getElementById('animatedDropdown');
+            if (dropdownBtn && dropdownMenu) {
+                dropdownBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdownMenu.classList.toggle('open');
+                });
+                document.addEventListener('click', (event) => {
+                    if (!dropdownBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                        dropdownMenu.classList.remove('open');
+                    }
+                });
+            }
+            // Modal close button
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+            const modalOverlay = document.getElementById('productModal');
+            if (modalOverlay) {
+                modalOverlay.addEventListener('click', (e) => {
+                    if (e.target === modalOverlay) closeModal();
+                });
+            }
+        });
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Category Circles */
+        .cat-circle {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .cat-circle:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Hero Image */
+        .top-hero-bg {
+            background-image: url('img1.jpg');
+            background-size: cover;
+            background-position: center;
+            width: 100%;
+            height: 450px;
+            position: relative;
+        }
+        .top-hero-bg::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
+        }
+
+        /* Product Cards */
+        .product-card {
+            transition: transform 0.2s;
+        }
+        .product-card:hover {
+            transform: scale(1.02);
+        }
+
+        @media (max-width: 768px) {
+            .top-hero-bg { height: 250px; }
+        }
+
+        /* Animated dropdown */
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-12px) scale(0.96);
+            transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), visibility 0.2s;
+            z-index: 60;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .dropdown-menu.open {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #1f2937;
+            transition: all 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover {
+            background: #f9fafb;
+            color: #ea580c;
+            padding-left: 24px;
+        }
+        .dropdown-icon { width: 24px; text-align: center; color: #6b7280; }
+        .dropdown-item:hover .dropdown-icon { color: #ea580c; }
+
+        /* Product Modal */
+        .product-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.25s ease;
+        }
+        .product-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .product-modal-card {
+            background: white;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 2rem;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+            box-shadow: 0 30px 50px rgba(0,0,0,0.3);
+        }
+        .product-modal-overlay.active .product-modal-card { transform: scale(1); }
+        .modal-img {
+            width: 100%;
+            max-height: 380px;
+            object-fit: contain;
+            background: #faf9f8;
+            padding: 1rem;
+        }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            background: white;
+            border-radius: 100px;
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: 0.2s;
+        }
+        .modal-close:hover { background: #ea580c; color: white; }
+        @media (max-width: 640px) {
+            .product-modal-card { width: 95%; max-width: 95%; margin: 1rem; }
+        }
+        
+        /* Loading animation removed permanently — no spinner overlay */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        @media (min-width: 1024px) {
+            .products-grid { grid-template-columns: repeat(4, 1fr); gap: 2rem; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+<nav class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <img src="raz.png" class="h-10 w-auto" alt="Logo">
+            <span class="text-xl font-bold tracking-tighter">RAZAK TRADERS</span>
+        </div>
+        
+        <div class="flex-1 max-w-md mx-8 hidden md:block">
+            <div id="autocomplete-desktop" class="text-sm text-gray-400 italic">🔍 Search (dynamic)</div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <a href="https://wa.me/256704797769" class="text-green-600 md:bg-green-50 md:text-green-700 md:px-4 md:py-2 rounded-full font-bold flex items-center gap-2">
+                <i class="fab fa-whatsapp text-xl"></i>
+                <span class="hidden md:inline">Live Chat</span>
+            </a>
+            <!-- Animated dropdown at right corner with added Delivery link -->
+            <div class="relative">
+                <button id="dropdownTriggerBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm border border-gray-200">
+                    <i class="fas fa-ellipsis-v text-lg"></i>
+                </button>
+                <div id="animatedDropdown" class="dropdown-menu">
+                    <a href="contact.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-address-card"></i></span>
+                        <span>Contact</span>
+                    </a>
+                    <a href="location.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-location-dot"></i></span>
+                        <span>Location</span>
+                    </a>
+                    <a href="delivery.html" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-truck"></i></span>
+                        <span>Delivery Info</span>
+                    </a>
+                    <a href="mailto:hamidtomusange47@gmail.com?subject=Inquiry%20from%20Razak%20Traders" class="dropdown-item">
+                        <span class="dropdown-icon"><i class="fas fa-envelope"></i></span>
+                        <span>Email Business</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<header class="top-hero-bg flex items-end">
+    <div class="container mx-auto px-6 pb-12 relative z-10 text-white">
+        <h1 class="text-4xl md:text-6xl font-black mb-2 uppercase italic">Industrial Precision.</h1>
+        <p class="text-lg md:text-xl font-medium opacity-90 max-w-xl">Stocking premium Ingco, Wadfow, and high-end electronics for the Ugandan market.</p>
+    </div>
+</header>
+
+<section class="bg-white py-8 shadow-sm overflow-hidden sticky top-[64px] z-40">
+    <div class="container mx-auto px-4">
+        <div class="flex items-start justify-between overflow-x-auto no-scrollbar space-x-6 md:space-x-12">
+            <a href="#cat-charging" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-orange-500 p-1 mb-2 overflow-hidden bg-white shadow-lg">
+                    <img src="im1.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Power & Acc.</span>
+            </a>
+            <a href="#cat-handtools" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-200 p-1 mb-2 overflow-hidden bg-white shadow-md">
+                    <img src="im2.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Hand Tools</span>
+            </a>
+            <a href="#cat-appliances" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-200 p-1 mb-2 overflow-hidden bg-white shadow-md">
+                    <img src="im3.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Appliances</span>
+            </a>
+            <a href="#cat-safety" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-200 p-1 mb-2 overflow-hidden bg-white shadow-md">
+                    <img src="im4.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Safety/PPE</span>
+            </a>
+            <a href="#cat-audio" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-200 p-1 mb-2 overflow-hidden bg-white shadow-md">
+                    <img src="im5.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Audio/PA</span>
+            </a>
+            <a href="#cat-powertools" class="flex flex-col items-center min-w-[80px] cat-circle">
+                <div class="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-gray-200 p-1 mb-2 overflow-hidden bg-white shadow-md">
+                    <img src="im6.jpg" class="w-full h-full object-cover rounded-full">
+                </div>
+                <span class="text-[10px] md:text-xs font-bold uppercase text-center">Power Tools</span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<main class="container mx-auto px-4 py-12 space-y-24">
+    <!-- Each category section now has an empty products-grid that will be filled dynamically -->
+    <section id="cat-charging" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-orange-500 pl-4">
+            <h2 class="text-2xl font-black uppercase">Power & Charging</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 01</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+
+    <section id="cat-handtools" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-yellow-500 pl-4">
+            <h2 class="text-2xl font-black uppercase">Hand Tools</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 02</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+
+    <section id="cat-appliances" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-blue-500 pl-4">
+            <h2 class="text-2xl font-black uppercase">Home Appliances</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 03</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+
+    <section id="cat-safety" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-red-600 pl-4">
+            <h2 class="text-2xl font-black uppercase">Safety & PPE</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 04</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+
+    <section id="cat-audio" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-purple-600 pl-4">
+            <h2 class="text-2xl font-black uppercase">Audio & Entertainment</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 05</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+
+    <section id="cat-powertools" class="pt-16">
+        <div class="flex items-center justify-between mb-8 border-l-4 border-yellow-400 pl-4">
+            <h2 class="text-2xl font-black uppercase text-yellow-500">INGCO Power Tools</h2>
+            <span class="text-gray-400 font-mono text-sm">CATEGORY 06</span>
+        </div>
+        <div class="products-grid"></div>
+    </section>
+</main>
+
+<footer class="bg-gray-950 text-white py-16">
+    <div class="container mx-auto px-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-12 border-b border-gray-800 pb-12">
+            <div>
+                <img src="raz.png" class="h-12 w-auto mb-6 grayscale invert" alt="Logo">
+                <p class="text-gray-400 text-sm leading-relaxed uppercase tracking-widest">Logic over hype. Quality industrial tools and electronics for professionals.</p>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Fast Navigation</h4>
+                <ul class="space-y-4 text-sm text-gray-500 font-bold">
+                    <li><a href="#cat-charging" class="hover:text-orange-500">CHARGING SOLUTIONS</a></li>
+                    <li><a href="#cat-handtools" class="hover:text-orange-500">HAND TOOLS</a></li>
+                    <li><a href="#cat-powertools" class="hover:text-orange-500">INGCO POWER TOOLS</a></li>
+                    <li><a href="delivery.html" class="hover:text-orange-500">DELIVERY INFO</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Contact info</h4>
+                <p class="text-sm text-gray-400 font-mono">+256 704 797769</p>
+                <p class="text-sm text-gray-400 font-mono mt-2">hamidtomusange47@gmail.com</p>
+            </div>
+            <div>
+                <h4 class="font-black mb-6 uppercase tracking-tighter">Business Hours</h4>
+                <p class="text-sm text-gray-400">MON - SAT: 8:00 AM - 6:00 PM</p>
+                <p class="text-sm text-gray-400">SUN: CLOSED</p>
+            </div>
+        </div>
+        <div class="pt-8 flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 font-black tracking-[0.2em]">
+            <p>© 2026 RAZAK TRADERS. ALL RIGHTS RESERVED.</p>
+            <p class="mt-4 md:mt-0">DEVELOPED BY </p>
+        </div>
+    </div>
+</footer>
+
+<button onclick="window.scrollTo(0,0)" class="fixed bottom-6 left-6 bg-white text-black w-12 h-12 rounded-full shadow-2xl flex items-center justify-center border border-gray-200 z-50">
+    <i class="fas fa-chevron-up"></i>
+</button>
+
+<a href="https://wa.me/256704797769" class="fixed bottom-6 right-6 bg-green-500 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl z-50 hover:scale-110 transition">
+    <i class="fab fa-whatsapp"></i>
+</a>
+
+<!-- Product Modal Structure -->
+<div id="productModal" class="product-modal-overlay">
+    <div class="relative">
+        <div class="product-modal-card">
+            <img id="modalImg" class="modal-img" src="" alt="Product">
+            <div class="p-6">
+                <h3 id="modalName" class="text-2xl font-black uppercase tracking-tight">Product Name</h3>
+                <p id="modalDesc" class="text-gray-600 mt-2 text-sm leading-relaxed"></p>
+                <p id="modalPrice" class="text-orange-600 font-black text-2xl mt-4"></p>
+            </div>
+        </div>
+        <div class="modal-close" id="closeModalBtn">
+            <i class="fas fa-times text-xl"></i>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Fallback for autocomplete placeholder (non-functional but keeps design)
+    const autocompleteDiv = document.getElementById('autocomplete-desktop');
+    if(autocompleteDiv) autocompleteDiv.innerHTML = '<input type="text" placeholder="Search (dynamic loading)" class="w-full p-2 rounded-full border border-gray-200 text-sm" disabled>';
+</script>
+</body>
+</html>
