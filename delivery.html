@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Razak Traders | Boda & Customer Tracker</title>
+    <!-- Favicon & Logo (raz.png) -->
+    <link rel="icon" type="image/png" href="raz.png">
+    <!-- Tailwind + Inter + FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; margin: 0; padding: 0; }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(234, 88, 12, 0.3);
+            border-radius: 1.5rem;
+        }
+        .btn-orange {
+            background: #ea580c;
+            transition: all 0.2s ease;
+        }
+        .btn-orange:hover { background: #c2410c; transform: scale(0.98); }
+        .pulse-green {
+            box-shadow: 0 0 0 0 rgba(34,197,94,0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+            100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 16px;
+            right: 16px;
+            z-index: 9999;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .map-container { height: 55vh; width: 100%; border-radius: 1.25rem; overflow: hidden; border: 1px solid #ea580c40; }
+        .leaflet-container { background: #1e293b; }
+        .boda-marker {
+            background: #ea580c;
+            border-radius: 50%;
+            border: 2px solid white;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .self-marker {
+            background: #0284c7;
+        }
+        .auth-tab-active {
+            border-bottom: 2px solid #ea580c;
+            color: #ea580c;
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- LOGIN / SIGNUP SCREEN (replaces old landing) -->
+    <div id="authContainer" class="min-h-screen flex flex-col items-center justify-center p-6">
+        <div class="text-center mb-6">
+            <img src="raz.png" alt="Razak Traders" class="w-24 h-24 object-contain rounded-2xl mx-auto shadow-xl mb-3">
+            <h1 class="text-3xl font-black text-orange-400">Razak Traders</h1>
+            <p class="text-slate-300 mt-1">Secure delivery tracking</p>
+        </div>
+        <div class="w-full max-w-md glass-card p-6">
+            <div class="flex gap-4 mb-6 border-b border-slate-700">
+                <button id="loginTabBtn" class="pb-2 text-lg font-semibold text-slate-300 auth-tab-active">Login</button>
+                <button id="signupTabBtn" class="pb-2 text-lg font-semibold text-slate-300">Sign Up</button>
+            </div>
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="loginEmail" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="you@example.com">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="loginPassword" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="••••••••">
+                </div>
+                <button id="doLoginBtn" class="btn-orange w-full py-3 rounded-xl font-bold"><i class="fas fa-sign-in-alt mr-2"></i> Login</button>
+                <div class="relative my-5">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
+                    <div class="relative flex justify-center text-xs"><span class="bg-slate-800 px-2 text-slate-400">OR</span></div>
+                </div>
+                <button id="googleLoginBtn" class="w-full py-3 rounded-xl font-semibold bg-slate-800 border border-slate-600 hover:bg-slate-700 transition"><i class="fab fa-google mr-2 text-orange-400"></i> Continue with Google</button>
+            </div>
+            <!-- Signup Form (with role selection) -->
+            <div id="signupForm" class="hidden">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="signupEmail" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="you@example.com">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="signupPassword" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="••••••••">
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium mb-2">I am a:</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2"><input type="radio" name="role" value="customer" checked> <i class="fas fa-user"></i> Customer</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="role" value="boda"> <i class="fas fa-motorcycle"></i> Boda Rider</label>
+                    </div>
+                </div>
+                <button id="doSignupBtn" class="btn-orange w-full py-3 rounded-xl font-bold"><i class="fas fa-user-plus mr-2"></i> Create Account</button>
+                <div class="relative my-5">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div>
+                    <div class="relative flex justify-center text-xs"><span class="bg-slate-800 px-2 text-slate-400">OR</span></div>
+                </div>
+                <button id="googleSignupBtn" class="w-full py-3 rounded-xl font-semibold bg-slate-800 border border-slate-600 hover:bg-slate-700 transition"><i class="fab fa-google mr-2 text-orange-400"></i> Sign up with Google</button>
+            </div>
+            <p id="authErrorMsg" class="text-red-400 text-xs text-center mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <!-- CUSTOMER TRACKING VIEW -->
+    <div id="customerView" class="hidden min-h-screen pb-6">
+        <div class="sticky top-0 z-20 glass-card mx-3 mt-3 p-3 flex justify-between items-center backdrop-blur-md">
+            <div class="flex items-center gap-2">
+                <img src="raz.png" alt="logo" class="w-7 h-7 object-contain rounded-full">
+                <span class="font-bold">Track Order</span>
+            </div>
+            <button id="logoutFromCustomer" class="text-sm bg-slate-800 px-3 py-1 rounded-full"><i class="fas fa-sign-out-alt mr-1"></i> Logout</button>
+        </div>
+        <div class="px-4 pt-4">
+            <div class="glass-card p-4 mb-4">
+                <label class="block text-sm font-medium text-slate-300 mb-1">Order ID (code from Boda)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="customerOrderId" class="flex-1 p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="e.g., ORDER-1234">
+                    <button id="trackOrderBtn" class="btn-orange px-5 rounded-xl font-bold"><i class="fas fa-search"></i></button>
+                </div>
+                <div id="trackError" class="text-red-400 text-xs mt-2 hidden"></div>
+            </div>
+            <div id="customerMapContainer" class="map-container mb-3"></div>
+            <div class="glass-card p-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span id="liveDot" class="w-3 h-3 bg-red-500 rounded-full"></span>
+                    <span id="liveStatusText" class="text-sm font-medium">Rider offline</span>
+                </div>
+                <div id="lastUpdateTime" class="text-xs text-slate-400">—</div>
+            </div>
+            <div class="text-center text-xs text-slate-500 mt-3">📍 Last known location on map</div>
+        </div>
+    </div>
+
+    <!-- BODA CONTROL PANEL -->
+    <div id="bodaView" class="hidden min-h-screen pb-24">
+        <div class="sticky top-0 z-20 glass-card mx-3 mt-3 p-3 flex justify-between items-center backdrop-blur-md">
+            <div class="flex items-center gap-2">
+                <img src="raz.png" alt="logo" class="w-7 h-7 object-contain rounded-full">
+                <span class="font-bold">Boda Commander</span>
+            </div>
+            <button id="logoutFromBoda" class="text-sm bg-slate-800 px-3 py-1 rounded-full"><i class="fas fa-sign-out-alt mr-1"></i> Logout</button>
+        </div>
+        <div class="px-4 pt-4 space-y-4">
+            <div class="glass-card p-4">
+                <label class="block text-sm font-medium text-slate-300 mb-1">Active Delivery Order ID (share with customer)</label>
+                <input type="text" id="bodaOrderId" class="w-full p-3 rounded-xl bg-slate-800 border border-slate-700 text-white" placeholder="ORDER-1234">
+                <p class="text-xs text-slate-400 mt-1">Customer uses this code to track you</p>
+            </div>
+
+            <div class="glass-card p-4">
+                <h3 class="font-semibold flex items-center gap-2"><i class="fas fa-satellite-dish text-orange-400"></i> GPS Location Publisher</h3>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    <button id="getGpsBtn" class="bg-slate-700 py-2 rounded-xl text-sm font-medium"><i class="fas fa-location-dot mr-1"></i> Get GPS</button>
+                    <button id="publishLocationBtn" class="btn-orange py-2 rounded-xl text-sm font-bold"><i class="fas fa-cloud-upload-alt mr-1"></i> Publish</button>
+                </div>
+                <div class="mt-3 bg-slate-800/50 p-2 rounded-lg">
+                    <div class="flex justify-between text-xs">
+                        <span>Latitude:</span>
+                        <span id="currentLat" class="font-mono text-orange-300">—</span>
+                    </div>
+                    <div class="flex justify-between text-xs mt-1">
+                        <span>Longitude:</span>
+                        <span id="currentLng" class="font-mono text-orange-300">—</span>
+                    </div>
+                </div>
+                <button id="startLiveTracking" class="w-full mt-3 border border-orange-500/50 py-2 rounded-xl text-sm font-medium transition hover:bg-orange-500/20"><i class="fas fa-play-circle mr-1"></i> Start Live Tracking (auto every 5s)</button>
+                <button id="stopLiveTracking" class="w-full mt-2 border border-red-500/50 py-2 rounded-xl text-sm font-medium hidden"><i class="fas fa-stop-circle mr-1"></i> Stop Tracking</button>
+                <div id="liveTrackingStatus" class="text-xs text-center mt-2 text-green-400 hidden">● Live tracking active (updates every 5s)</div>
+            </div>
+
+            <div class="glass-card p-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-medium"><i class="fas fa-map-marked-alt mr-1"></i> Last published location</span>
+                    <span id="publishStatus" class="text-xs text-green-400">Ready</span>
+                </div>
+                <div id="bodaMiniMap" class="map-container mt-2 h-48"></div>
+            </div>
+            <div class="text-center text-xs text-slate-500 pb-2">📍 Use 'Get GPS' + 'Publish' or enable live auto‑tracking</div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toastContainer"></div>
+
+    <!-- Firebase SDK (Auth + Realtime Database) -->
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js",
+                "firebase/database": "https://www.gstatic.com/firebasejs/12.12.0/firebase-database.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getDatabase, ref, set, onValue, remove, onDisconnect, serverTimestamp, get } from "firebase/database";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "firebase/auth";
+
+        // Firebase Config (unchanged)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzMuj2Dy_T5r-6MDOErU-07uXZ5ixp1fM",
+            authDomain: "track-1ee3e.firebaseapp.com",
+            databaseURL: "https://track-1ee3e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "track-1ee3e",
+            storageBucket: "track-1ee3e.firebasestorage.app",
+            messagingSenderId: "276239373479",
+            appId: "1:276239373479:web:1104d8c0967a37feeb3782"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        // DOM elements
+        const authContainer = document.getElementById('authContainer');
+        const customerView = document.getElementById('customerView');
+        const bodaView = document.getElementById('bodaView');
+        const loginFormDiv = document.getElementById('loginForm');
+        const signupFormDiv = document.getElementById('signupForm');
+        const loginTab = document.getElementById('loginTabBtn');
+        const signupTab = document.getElementById('signupTabBtn');
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPassword = document.getElementById('loginPassword');
+        const doLoginBtn = document.getElementById('doLoginBtn');
+        const signupEmail = document.getElementById('signupEmail');
+        const signupPassword = document.getElementById('signupPassword');
+        const doSignupBtn = document.getElementById('doSignupBtn');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const googleSignupBtn = document.getElementById('googleSignupBtn');
+        const authErrorMsg = document.getElementById('authErrorMsg');
+
+        // Customer elements
+        const customerOrderIdInput = document.getElementById('customerOrderId');
+        const trackBtn = document.getElementById('trackOrderBtn');
+        const trackErrorDiv = document.getElementById('trackError');
+        const logoutCustomer = document.getElementById('logoutFromCustomer');
+        // Boda elements
+        const bodaOrderIdInput = document.getElementById('bodaOrderId');
+        const getGpsBtn = document.getElementById('getGpsBtn');
+        const publishBtn = document.getElementById('publishLocationBtn');
+        const currentLatSpan = document.getElementById('currentLat');
+        const currentLngSpan = document.getElementById('currentLng');
+        const startLiveBtn = document.getElementById('startLiveTracking');
+        const stopLiveBtn = document.getElementById('stopLiveTracking');
+        const liveTrackingStatus = document.getElementById('liveTrackingStatus');
+        const publishStatusSpan = document.getElementById('publishStatus');
+        const liveDot = document.getElementById('liveDot');
+        const liveStatusText = document.getElementById('liveStatusText');
+        const lastUpdateTimeSpan = document.getElementById('lastUpdateTime');
+        const logoutBoda = document.getElementById('logoutFromBoda');
+
+        // Maps & markers
+        let customerMap = null;
+        let customerMarker = null;
+        let bodaMiniMap = null;
+        let bodaSelfMarker = null;
+        let currentWatchId = null;
+        let liveInterval = null;
+        let currentBodaOrderId = null;
+        let lastPublishedCoords = null;
+        let currentGpsCoords = { lat: null, lng: null };
+        let unsubscribeCustomer = null;
+        let currentUserRole = null;
+
+        // Helper: show toast
+        function showToast(msg, isError = false) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast glass-card p-3 flex items-center gap-2 text-sm font-semibold ${isError ? 'border-red-500' : 'border-green-500'} bg-slate-900/90`;
+            toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-triangle text-red-400' : 'fa-check-circle text-green-400'}"></i> ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // LocalStorage helpers (order IDs)
+        function saveCustomerOrderId(orderId) { if(orderId) localStorage.setItem('razak_customer_track', orderId); }
+        function getCustomerOrderId() { return localStorage.getItem('razak_customer_track') || ''; }
+        function saveBodaOrderId(orderId) { if(orderId) localStorage.setItem('razak_boda_order', orderId); }
+        function getBodaOrderId() { return localStorage.getItem('razak_boda_order') || ''; }
+
+        // ---------- CUSTOMER LOGIC (unchanged from original) ----------
+        function initCustomerMap() {
+            if (customerMap) customerMap.remove();
+            const container = document.getElementById('customerMapContainer');
+            customerMap = L.map(container).setView([0.3136, 32.5811], 12);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
+                subdomains: 'abcd'
+            }).addTo(customerMap);
+        }
+
+        function updateCustomerMarker(lat, lng, timestamp) {
+            if (!customerMap) initCustomerMap();
+            if (customerMarker) customerMarker.remove();
+            const icon = L.divIcon({ html: `<div class="boda-marker"><i class="fas fa-motorcycle text-white text-xs"></i></div>`, iconSize: [28,28], className: '' });
+            customerMarker = L.marker([lat, lng], { icon }).addTo(customerMap);
+            customerMap.setView([lat, lng], 14);
+            if (timestamp) {
+                const date = new Date(timestamp);
+                lastUpdateTimeSpan.innerHTML = `<i class="far fa-clock mr-1"></i> ${date.toLocaleTimeString()}`;
+            }
+            const now = Date.now();
+            const diff = now - timestamp;
+            const isOnline = navigator.onLine;
+            if (isOnline && diff < 15000) {
+                liveDot.className = "w-3 h-3 bg-green-500 rounded-full pulse-green";
+                liveStatusText.innerHTML = "<i class='fas fa-broadcast-tower mr-1'></i> LIVE • Rider online";
+            } else if (!isOnline) {
+                liveDot.className = "w-3 h-3 bg-red-500 rounded-full";
+                liveStatusText.innerHTML = "<i class='fas fa-signal-slash mr-1'></i> Rider Offline - Signal Lost";
+            } else if (diff >= 15000) {
+                liveDot.className = "w-3 h-3 bg-red-500 rounded-full";
+                liveStatusText.innerHTML = "<i class='fas fa-hourglass-half mr-1'></i> Stale location • No recent update";
+            }
+        }
+
+        function subscribeToOrder(orderId) {
+            if (unsubscribeCustomer) unsubscribeCustomer();
+            const orderRef = ref(db, `active_deliveries/${orderId}/location`);
+            unsubscribeCustomer = onValue(orderRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
+                    trackErrorDiv.classList.add('hidden');
+                    const timestamp = data.timestamp ? (typeof data.timestamp === 'number' ? data.timestamp : Date.now()) : Date.now();
+                    updateCustomerMarker(data.lat, data.lng, timestamp);
+                } else {
+                    if (customerMarker) customerMarker.remove();
+                    trackErrorDiv.classList.add('hidden');
+                    lastUpdateTimeSpan.innerHTML = "Waiting for first location...";
+                    liveDot.className = "w-3 h-3 bg-yellow-500 rounded-full";
+                    liveStatusText.innerHTML = "Awaiting rider publish";
+                }
+            });
+        }
+
+        function checkAndTrackOrder() {
+            let orderId = customerOrderIdInput.value.trim();
+            if (!orderId) { trackErrorDiv.innerText = "Enter an Order ID"; trackErrorDiv.classList.remove('hidden'); return; }
+            saveCustomerOrderId(orderId);
+            const checkRef = ref(db, `active_deliveries/${orderId}`);
+            onValue(checkRef, (snap) => {
+                if (snap.exists()) {
+                    trackErrorDiv.classList.add('hidden');
+                    subscribeToOrder(orderId);
+                } else {
+                    trackErrorDiv.innerText = "Tracking ID Not Found";
+                    trackErrorDiv.classList.remove('hidden');
+                    if (customerMarker) customerMarker.remove();
+                    lastUpdateTimeSpan.innerHTML = "—";
+                    liveDot.className = "w-3 h-3 bg-red-500 rounded-full";
+                    liveStatusText.innerHTML = "Invalid ID";
+                    if (unsubscribeCustomer) { unsubscribeCustomer(); unsubscribeCustomer = null; }
+                }
+            }, { onlyOnce: true });
+        }
+
+        // ---------- BODA LOGIC (preserved) ----------
+        function publishLocationToFirebase(orderId, lat, lng) {
+            if (!orderId) { showToast("Set Order ID first", true); return false; }
+            if (!lat || !lng) { showToast("No GPS coordinates. Click 'Get GPS' first", true); return false; }
+            const locationRef = ref(db, `active_deliveries/${orderId}/location`);
+            const payload = { lat: lat, lng: lng, timestamp: serverTimestamp() };
+            set(locationRef, payload).then(() => {
+                showToast(`📍 Location published for ${orderId}`);
+                publishStatusSpan.innerHTML = "Published!";
+                setTimeout(() => publishStatusSpan.innerHTML = "Ready", 2000);
+                onDisconnect(locationRef).remove();
+                lastPublishedCoords = { lat, lng, timestamp: Date.now() };
+                if (bodaMiniMap && bodaSelfMarker) {
+                    bodaSelfMarker.setLatLng([lat, lng]);
+                    bodaMiniMap.setView([lat, lng], 15);
+                } else if (bodaMiniMap) {
+                    const icon = L.divIcon({ html: `<div class="boda-marker self-marker"><i class="fas fa-motorcycle text-white text-xs"></i></div>`, iconSize: [28,28], className: '' });
+                    bodaSelfMarker = L.marker([lat, lng], { icon }).addTo(bodaMiniMap);
+                    bodaMiniMap.setView([lat, lng], 15);
+                }
+            }).catch(err => { showToast("DB error", true); console.error(err); });
+            return true;
+        }
+
+        function getCurrentGPS() {
+            if (!navigator.geolocation) { showToast("GPS not supported", true); return; }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    currentGpsCoords = { lat: latitude, lng: longitude };
+                    currentLatSpan.innerText = latitude.toFixed(6);
+                    currentLngSpan.innerText = longitude.toFixed(6);
+                    showToast("GPS coordinates acquired");
+                },
+                (err) => { showToast("GPS error: allow location", true); console.warn(err); },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        function startLiveAutoTracking() {
+            if (liveInterval) clearInterval(liveInterval);
+            if (currentWatchId) navigator.geolocation.clearWatch(currentWatchId);
+            let lastSent = 0;
+            currentWatchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    currentGpsCoords = { lat: latitude, lng: longitude };
+                    currentLatSpan.innerText = latitude.toFixed(6);
+                    currentLngSpan.innerText = longitude.toFixed(6);
+                    const now = Date.now();
+                    if (now - lastSent >= 4500 && currentBodaOrderId) {
+                        lastSent = now;
+                        publishLocationToFirebase(currentBodaOrderId, latitude, longitude);
+                    }
+                },
+                (err) => { console.warn(err); showToast("GPS tracking error", true); },
+                { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+            );
+            liveInterval = setInterval(() => {
+                if (currentGpsCoords.lat && currentGpsCoords.lng && currentBodaOrderId) {
+                    const now = Date.now();
+                    if (!lastPublishedCoords || (now - (lastPublishedCoords.timestamp || 0)) >= 5000) {
+                        publishLocationToFirebase(currentBodaOrderId, currentGpsCoords.lat, currentGpsCoords.lng);
+                        lastPublishedCoords = { ...currentGpsCoords, timestamp: now };
+                    }
+                }
+            }, 5000);
+            liveTrackingStatus.classList.remove('hidden');
+            startLiveBtn.classList.add('hidden');
+            stopLiveBtn.classList.remove('hidden');
+            showToast("Live tracking active (auto-publish every 5s)");
+        }
+
+        function stopLiveAutoTracking() {
+            if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+            if (currentWatchId) { navigator.geolocation.clearWatch(currentWatchId); currentWatchId = null; }
+            liveTrackingStatus.classList.add('hidden');
+            startLiveBtn.classList.remove('hidden');
+            stopLiveBtn.classList.add('hidden');
+            showToast("Live tracking stopped");
+        }
+
+        function initBodaMiniMap() {
+            if (bodaMiniMap) bodaMiniMap.remove();
+            const container = document.getElementById('bodaMiniMap');
+            bodaMiniMap = L.map(container).setView([0.3136, 32.5811], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OSM & CartoDB'
+            }).addTo(bodaMiniMap);
+        }
+
+        function loadLastLocationForOrder(orderId) {
+            if (!orderId) return;
+            const locRef = ref(db, `active_deliveries/${orderId}/location`);
+            onValue(locRef, (snap) => {
+                const data = snap.val();
+                if (data && data.lat && data.lng && bodaMiniMap) {
+                    if (bodaSelfMarker) bodaSelfMarker.remove();
+                    const icon = L.divIcon({ html: `<div class="boda-marker self-marker"><i class="fas fa-motorcycle text-white text-xs"></i></div>`, iconSize: [28,28], className: '' });
+                    bodaSelfMarker = L.marker([data.lat, data.lng], { icon }).addTo(bodaMiniMap);
+                    bodaMiniMap.setView([data.lat, data.lng], 14);
+                    currentLatSpan.innerText = data.lat.toFixed(6);
+                    currentLngSpan.innerText = data.lng.toFixed(6);
+                    currentGpsCoords = { lat: data.lat, lng: data.lng };
+                }
+            }, { onlyOnce: true });
+        }
+
+        function setupBodaUI() {
+            const savedOrder = getBodaOrderId();
+            if (savedOrder) {
+                bodaOrderIdInput.value = savedOrder;
+                currentBodaOrderId = savedOrder;
+            } else {
+                currentBodaOrderId = null;
+            }
+            initBodaMiniMap();
+            if (currentBodaOrderId) loadLastLocationForOrder(currentBodaOrderId);
+        }
+
+        // ---------- AUTH & ROLE HANDLING ----------
+        async function setUserRole(uid, role) {
+            await set(ref(db, `users/${uid}/role`), role);
+        }
+
+        async function getUserRole(uid) {
+            const snap = await get(ref(db, `users/${uid}/role`));
+            return snap.val();
+        }
+
+        async function handleSignIn(user, roleFromSignup = null) {
+            if (!user) return;
+            let role = roleFromSignup;
+            if (!role) {
+                role = await getUserRole(user.uid);
+            }
+            if (!role) {
+                // First time Google sign-in without role selection -> ask user to pick role
+                const selectedRole = prompt("Welcome! Choose your role:\nType 'customer' for tracking deliveries\nType 'boda' for rider panel");
+                if (selectedRole === 'customer') role = 'customer';
+                else if (selectedRole === 'boda') role = 'boda';
+                else { showToast("Invalid role, defaulting to customer", true); role = 'customer'; }
+                await setUserRole(user.uid, role);
+            }
+            currentUserRole = role;
+            // Clear previous intervals/maps
+            if (liveInterval) stopLiveAutoTracking();
+            if (unsubscribeCustomer) unsubscribeCustomer();
+            if (customerMap) customerMap.remove();
+            if (bodaMiniMap) bodaMiniMap.remove();
+            customerMap = null; bodaMiniMap = null; customerMarker = null; bodaSelfMarker = null;
+            authContainer.classList.add('hidden');
+            if (role === 'boda') {
+                bodaView.classList.remove('hidden');
+                customerView.classList.add('hidden');
+                setupBodaUI();
+            } else {
+                customerView.classList.remove('hidden');
+                bodaView.classList.add('hidden');
+                initCustomerMap();
+                const savedId = getCustomerOrderId();
+                if (savedId) {
+                    customerOrderIdInput.value = savedId;
+                    checkAndTrackOrder();
+                }
+            }
+        }
+
+        async function logout() {
+            await signOut(auth);
+            if (liveInterval) stopLiveAutoTracking();
+            if (currentWatchId) navigator.geolocation.clearWatch(currentWatchId);
+            if (unsubscribeCustomer) unsubscribeCustomer();
+            if (customerMap) { customerMap.remove(); customerMap = null; }
+            if (bodaMiniMap) { bodaMiniMap.remove(); bodaMiniMap = null; }
+            customerView.classList.add('hidden');
+            bodaView.classList.add('hidden');
+            authContainer.classList.remove('hidden');
+            showToast("Logged out");
+        }
+
+        // Event listeners for Auth UI
+        loginTab.addEventListener('click', () => {
+            loginFormDiv.classList.remove('hidden');
+            signupFormDiv.classList.add('hidden');
+            loginTab.classList.add('auth-tab-active');
+            signupTab.classList.remove('auth-tab-active');
+            authErrorMsg.classList.add('hidden');
+        });
+        signupTab.addEventListener('click', () => {
+            signupFormDiv.classList.remove('hidden');
+            loginFormDiv.classList.add('hidden');
+            signupTab.classList.add('auth-tab-active');
+            loginTab.classList.remove('auth-tab-active');
+            authErrorMsg.classList.add('hidden');
+        });
+
+        async function emailLogin() {
+            const email = loginEmail.value.trim();
+            const pwd = loginPassword.value.trim();
+            if (!email || !pwd) { authErrorMsg.innerText = "Email & password required"; authErrorMsg.classList.remove('hidden'); return; }
+            try {
+                const cred = await signInWithEmailAndPassword(auth, email, pwd);
+                handleSignIn(cred.user);
+            } catch (err) { authErrorMsg.innerText = err.message; authErrorMsg.classList.remove('hidden'); }
+        }
+
+        async function emailSignup() {
+            const email = signupEmail.value.trim();
+            const pwd = signupPassword.value.trim();
+            const roleRadios = document.querySelectorAll('input[name="role"]');
+            let selectedRole = 'customer';
+            for (let radio of roleRadios) if (radio.checked) selectedRole = radio.value;
+            if (!email || !pwd) { authErrorMsg.innerText = "All fields required"; authErrorMsg.classList.remove('hidden'); return; }
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+                await setUserRole(cred.user.uid, selectedRole);
+                handleSignIn(cred.user, selectedRole);
+            } catch (err) { authErrorMsg.innerText = err.message; authErrorMsg.classList.remove('hidden'); }
+        }
+
+        async function googleAuth(isSignup = true) {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+                let role = await getUserRole(user.uid);
+                if (!role && !isSignup) {
+                    role = await getUserRole(user.uid);
+                }
+                if (!role) {
+                    const selectedRole = prompt("Choose your role:\nType 'customer' or 'boda'");
+                    if (selectedRole === 'customer') role = 'customer';
+                    else if (selectedRole === 'boda') role = 'boda';
+                    else { showToast("Invalid, default customer", true); role = 'customer'; }
+                    await setUserRole(user.uid, role);
+                }
+                handleSignIn(user, role);
+            } catch (err) { authErrorMsg.innerText = err.message; authErrorMsg.classList.remove('hidden'); }
+        }
+
+        doLoginBtn.addEventListener('click', emailLogin);
+        doSignupBtn.addEventListener('click', emailSignup);
+        googleLoginBtn.addEventListener('click', () => googleAuth(false));
+        googleSignupBtn.addEventListener('click', () => googleAuth(true));
+        logoutCustomer.addEventListener('click', logout);
+        logoutBoda.addEventListener('click', logout);
+
+        // Preserve original Boda & Customer event listeners
+        trackBtn.addEventListener('click', checkAndTrackOrder);
+        getGpsBtn.addEventListener('click', getCurrentGPS);
+        publishBtn.addEventListener('click', () => {
+            const orderId = bodaOrderIdInput.value.trim();
+            if (!orderId) { showToast("Enter Order ID first", true); return; }
+            currentBodaOrderId = orderId;
+            saveBodaOrderId(orderId);
+            if (!currentGpsCoords.lat || !currentGpsCoords.lng) { showToast("Get GPS location first", true); return; }
+            publishLocationToFirebase(orderId, currentGpsCoords.lat, currentGpsCoords.lng);
+        });
+        startLiveBtn.addEventListener('click', () => {
+            const orderId = bodaOrderIdInput.value.trim();
+            if (!orderId) { showToast("Enter Order ID before live tracking", true); return; }
+            currentBodaOrderId = orderId;
+            saveBodaOrderId(orderId);
+            getCurrentGPS();
+            startLiveAutoTracking();
+        });
+        stopLiveBtn.addEventListener('click', stopLiveAutoTracking);
+        bodaOrderIdInput.addEventListener('change', (e) => {
+            const newId = e.target.value.trim();
+            if (newId) { currentBodaOrderId = newId; saveBodaOrderId(newId); loadLastLocationForOrder(newId); }
+        });
+
+        window.addEventListener('online', () => {
+            showToast("Connection restored");
+            if (!customerView.classList.contains('hidden') && customerOrderIdInput.value.trim()) checkAndTrackOrder();
+        });
+        window.addEventListener('offline', () => {
+            showToast("⚠️ Offline mode - updates paused", true);
+            if (!customerView.classList.contains('hidden')) {
+                liveDot.className = "w-3 h-3 bg-red-500 rounded-full";
+                liveStatusText.innerHTML = "<i class='fas fa-signal-slash mr-1'></i> Rider Offline - Signal Lost";
+            }
+        });
+
+        // Persist auth state
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                if (!currentUserRole) handleSignIn(user);
+            } else {
+                // Not logged in: ensure UI shows auth container
+                if (!authContainer.classList.contains('hidden')) return;
+                if (liveInterval) stopLiveAutoTracking();
+                if (currentWatchId) navigator.geolocation.clearWatch(currentWatchId);
+                if (unsubscribeCustomer) unsubscribeCustomer();
+                customerView.classList.add('hidden');
+                bodaView.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                currentUserRole = null;
+            }
+        });
+    </script>
+</body>
+</html>
